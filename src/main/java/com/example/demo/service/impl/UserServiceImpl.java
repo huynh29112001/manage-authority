@@ -13,7 +13,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.zip.DataFormatException;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -26,42 +29,50 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private AuthRepository authRepository;
 
+
     @Override
     public Integer save(UserDTO userDTO) {
         User user = new User();
-        try{
-            user.setUsername(userDTO.getUsername());
-            user.setEmail(userDTO.getEmail());
+        try {
+            if (userDTO.getUsername() == userDTO.getUsername().toLowerCase(Locale.ROOT)) {
+                if (userRepository.findByUsername(userDTO.getUsername()).size() == 0)
+                    user.setUsername(userDTO.getUsername());
+                else throw new DataNotFoundException("Username is exist");
+            } else throw new DataFormatException("Username is not format");
+
+            if (userDTO.getEmail() == userDTO.getEmail().toLowerCase(Locale.ROOT)) {
+                if (getUserByEmail(userDTO.getEmail()).size() == 0)
+                    user.setEmail(userDTO.getEmail());
+                else throw new DataNotFoundException("Email is exist");
+            } else throw new DataFormatException("Email is not format");
+
             user.setFullname(user.getFullname());
             user.setStatus(userDTO.getStatus());
-            user.setPassword(userDTO.getPassword());
+            if (userDTO.getPassword().length() >= 8)
+                user.setPassword(userDTO.getPassword());
+            else throw new DataFormatException("Password is not format");
             List<Auth> listAuth = new ArrayList<>();
-            for (Integer index:
-                 userDTO.getAuth_id()) {
-                listAuth.add(authRepository.findById(index).orElse(null));
+            for (Integer index :
+                    userDTO.getAuth_id()) {
+                listAuth.add(authRepository.findById(index).orElseThrow(DataNotFoundException::new));
             }
             user.setListAuth(listAuth);
-        }
-        catch (DataNotFoundException dataNotFoundException){
-            System.out.println("error");
+        } catch (Exception exception) {
+            return 0;
         }
         return userRepository.save(user).getId();
     }
 
-    @Override
-    public List<UserDTO> getDetailUser(Integer id) {
+    private List<UserDTO> getDetailUser(Integer id) {
         return userRepository.findById(id).map(userMapper::toDTO).stream().collect(Collectors.toList());
     }
 
     @Override
     public void deleteUser(int id) {
-        userRepository.deleteById(id);
-    }
-
-    @Override
-    public List<UserDTO> getUserByUserName(String userName) {
-
-        return userRepository.findByUsername(userName).stream().map(userMapper::toDTO).collect(Collectors.toList());
+        User user = userRepository.findById(id).orElseThrow(DataNotFoundException::new);
+        if (user.getId() == null)
+            throw new DataNotFoundException();
+        else userRepository.deleteById(id);
     }
 
     @Override
@@ -70,12 +81,15 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<UserDTO> getByStatus(Boolean status) {
-        return userRepository.findByStatus(status).stream().map(userMapper::toDTO).collect(Collectors.toList());
+    public List<UserDTO> getInfo(Optional<Integer> id, Optional<String> userName, Optional<String> role, Optional<Boolean> status) {
+        if (!role.isPresent()) {
+            return userRepository.getInfoNotRoleFromDB(id.orElse(null), userName.orElse(null), status.orElse(null)).stream().map(userMapper::toDTO).collect(Collectors.toList());
+        } else
+            return userRepository.getInfoFromDB(id.orElse(null), userName.orElse(null), role.orElse(null), status.orElse(null)).stream().map(userMapper::toDTO).collect(Collectors.toList());
+
     }
 
-    @Override
-    public List<UserDTO> getUserByRole(String roleName) {
-        return userRepository.getUserByRole(roleName).stream().map(userMapper::toDTO).collect(Collectors.toList());
+    private List<UserDTO> getUserByEmail(String email) {
+        return userRepository.findByEmail(email).stream().map(userMapper::toDTO).collect(Collectors.toList());
     }
 }
