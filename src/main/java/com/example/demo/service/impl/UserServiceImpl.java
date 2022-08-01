@@ -11,10 +11,7 @@ import com.example.demo.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.zip.DataFormatException;
 
@@ -34,13 +31,13 @@ public class UserServiceImpl implements UserService {
     public Integer save(UserDTO userDTO) {
         User user = new User();
         try {
-            if (userDTO.getUsername() == userDTO.getUsername().toLowerCase(Locale.ROOT)) {
-                if (userRepository.findByUsername(userDTO.getUsername()).size() == 0)
+            if (Objects.equals(userDTO.getUsername(), userDTO.getUsername().toLowerCase(Locale.ROOT))) {
+                if (userRepository.findByUsername(userDTO.getUsername()).isEmpty())
                     user.setUsername(userDTO.getUsername());
                 else throw new DataNotFoundException("Username is exist");
             } else throw new DataFormatException("Username is not format");
 
-            if (userDTO.getEmail() == userDTO.getEmail().toLowerCase(Locale.ROOT)) {
+            if (Objects.equals(userDTO.getEmail(), userDTO.getEmail().toLowerCase(Locale.ROOT))) {
                 if (getUserByEmail(userDTO.getEmail()).size() == 0)
                     user.setEmail(userDTO.getEmail());
                 else throw new DataNotFoundException("Email is exist");
@@ -86,7 +83,6 @@ public class UserServiceImpl implements UserService {
             return userRepository.getInfoNotRoleFromDB(id.orElse(null), userName.orElse(null), status.orElse(null)).stream().map(userMapper::toDTO).collect(Collectors.toList());
         } else
             return userRepository.getInfoFromDB(id.orElse(null), userName.orElse(null), role.orElse(null), status.orElse(null)).stream().map(userMapper::toDTO).collect(Collectors.toList());
-
     }
 
     private List<UserDTO> getUserByEmail(String email) {
